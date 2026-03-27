@@ -129,7 +129,7 @@ def run(state: BotState) -> BotState:
     # --- RSS feeds (parsed with stdlib xml.etree.ElementTree) ---
     for feed_url in RSS_FEEDS:
         try:
-            resp = requests.get(feed_url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
+            resp = requests.get(feed_url, timeout=8, headers={"User-Agent": "Mozilla/5.0"}, verify=False)
             resp.raise_for_status()
             root = ET.fromstring(resp.content)
             ns = {"atom": "http://www.w3.org/2005/Atom"}
