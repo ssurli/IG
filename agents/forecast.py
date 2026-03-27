@@ -26,11 +26,27 @@ Per ogni asset genera una previsione a breve/medio termine.
 Rispondi SOLO con un oggetto JSON valido nel formato specificato, senza testo aggiuntivo."""
 
 
-def _build_prompt(asset_data: list[dict]) -> str:
-    data_str = json.dumps(asset_data, indent=2, ensure_ascii=False)
-    return f"""Analizza questi asset e fornisci una previsione per ciascuno.
+def _build_macro_context(macro_data: list[dict]) -> str:
+    if not macro_data:
+        return ""
+    lines = []
+    for ind in macro_data:
+        lines.append(f"  {ind['name']} ({ind['country']}): {ind['value']:.2f} {ind['unit']}")
+    return "\n".join(lines)
 
-Dati:
+
+def _build_prompt(asset_data: list[dict], macro_data: list[dict] | None = None) -> str:
+    data_str = json.dumps(asset_data, indent=2, ensure_ascii=False)
+    macro_section = ""
+    if macro_data:
+        macro_section = f"""
+Contesto macro-economico:
+{_build_macro_context(macro_data)}
+
+"""
+    return f"""Analizza questi asset e fornisci una previsione per ciascuno.
+{macro_section}
+Dati asset:
 {data_str}
 
 Per ogni asset ritorna:
@@ -50,7 +66,8 @@ Considera:
 - rsi: >70 overbought, <30 oversold
 - ma_cross: golden=bullish, death=bearish
 - momentum_5d: variazione % ultimi 5 giorni
-- change_24h: variazione % ultime 24 ore"""
+- change_24h: variazione % ultime 24 ore
+- Dati macro: Fed Funds alto=bearish per growth, VIX alto=risk-off, yield curve inversa=recessione"""
 
 
 def _parse_forecasts(raw: str, symbols: list[str]) -> dict[str, dict]:
@@ -110,6 +127,7 @@ def run(state: BotState) -> BotState:
     technicals = state.get("technical_indicators", {})
     market = state.get("market_data", {})
     mentions = state.get("asset_mentions", {})
+    macro_data = state.get("macro_data", [])
 
     forecasts: dict[str, AssetForecast] = {}
 
@@ -139,9 +157,9 @@ def run(state: BotState) -> BotState:
             client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
             msg = client.messages.create(
                 model=CLAUDE_MODEL,
-                max_tokens=1024,
+                max_tokens=1500,
                 system=_SYSTEM,
-                messages=[{"role": "user", "content": _build_prompt(asset_data)}],
+                messages=[{"role": "user", "content": _build_prompt(asset_data, macro_data)}],
             )
             raw = msg.content[0].text.strip()
             parsed = _parse_forecasts(raw, ASSETS)
