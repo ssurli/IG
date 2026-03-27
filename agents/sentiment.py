@@ -99,32 +99,29 @@ def run(state: BotState) -> BotState:
 
     monitored = [s for s in ASSETS if s in ASSET_KEYWORDS]
 
-    # Pre-filter: only headlines that mention at least one known keyword
-    relevant: list[str] = []
+    # Build mentions map (keyword match) and collect ALL headlines for Claude
+    # Macro news (Fed, tariffs, recession) affect all assets even without explicit mention
+    all_headlines: list[str] = [item["title"] for item in news]
     mentions: dict[str, list[str]] = {sym: [] for sym in monitored}
 
     for item in news:
         title_lower = item["raw_text"].lower()
-        touched: list[str] = []
         for sym, kws in ASSET_KEYWORDS.items():
             if sym not in monitored:
                 continue
             if any(kw in title_lower for kw in kws):
-                touched.append(sym)
                 mentions[sym].append(item["title"])
-        if touched:
-            relevant.append(item["title"])
 
-    if not relevant:
-        logger.info("SentimentAgent: no relevant headlines found")
+    if not all_headlines:
+        logger.info("SentimentAgent: no headlines to process")
         state["sentiment_scores"] = {sym: 0.0 for sym in monitored}
         state["asset_mentions"] = mentions
         return state
 
-    # Score in batches of 10
+    # Score in batches of 10 — use ALL headlines, not just keyword-matched ones
     aggregated: dict[str, list[float]] = {sym: [] for sym in monitored}
-    for i in range(0, len(relevant), 10):
-        batch = relevant[i : i + 10]
+    for i in range(0, len(all_headlines), 10):
+        batch = all_headlines[i : i + 10]
         scores = _score_batch(batch, monitored)
         for sym in monitored:
             val = scores.get(sym, 0.0)
