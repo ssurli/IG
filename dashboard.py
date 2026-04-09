@@ -424,8 +424,8 @@ with tab_markets:
                 "Sentiment": lambda x: f"{x:+.2f}" if not pd.isna(x) else "—",
                 "Score": lambda x: f"{x:+.3f}" if not pd.isna(x) else "—",
             })
-            .applymap(_color_pct, subset=["1h %", "24h %"])
-            .applymap(_color_score, subset=["Sentiment", "Score"])
+            .map(_color_pct, subset=["1h %", "24h %"])
+            .map(_color_score, subset=["Sentiment", "Score"])
         )
         st.dataframe(styled, use_container_width=True, hide_index=True, height=min(40 * len(rows) + 38, 520))
 
